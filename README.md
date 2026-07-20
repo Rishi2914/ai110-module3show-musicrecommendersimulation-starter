@@ -17,17 +17,29 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real-world recommenders like Spotify and YouTube usually blend two signals: collaborative filtering, which recommends based on what *other* similar users listened to, and content-based filtering, which compares an item's own attributes to what a *specific* user already likes. This project only has one user's taste profile and a small fixed catalog with no listening history from other users, so it implements a content-based approach: every song is scored independently against the user's stated preferences, with no notion of what other users liked.
 
-Some prompts to answer:
+### Algorithm Recipe
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+For each song in the catalog, `score_song(user_prefs, song)` computes a single point total from three additive terms:
 
-You can include a simple diagram or bullet list if helpful.
+1. **Genre match: +2.0 points** if `song["genre"] == user_prefs["genre"]`, otherwise +0.
+2. **Mood match: +1.0 point** if `song["mood"] == user_prefs["mood"]`, otherwise +0.
+3. **Energy similarity: up to +2.0 points**, scaled linearly by how close the song's energy is to the target: `2.0 * (1 - abs(song["energy"] - user_prefs["energy"]))`. A perfect energy match scores the full 2.0; a maximally distant one (diff of 1.0) scores 0.
+
+These three terms are summed into a total score, and each contributing term also produces a plain-English reason string (e.g. `"Matches your favorite genre (pop) (+2.0)"`). `recommend_songs()` then:
+
+- Scores every song in the catalog this way (the loop),
+- Sorts all songs by total score, descending,
+- Returns the top `k` as `(song, score, explanation)` tuples, where `explanation` joins that song's reason strings.
+
+Genre and mood use exact-match bonuses (rather than similarity) because the catalog's genre/mood categories are sparse — several genres and moods have only one song in the 20-row dataset, so any fuzzier "closeness" measure between labels would be mostly guesswork.
+
+### Expected Biases
+
+- **Genre dominates ties.** Because a genre match (+2.0) outweighs a mood match (+1.0) and can equal a perfect energy match, a song in the user's favorite genre but a mismatched mood/energy can outrank a song that's a near-perfect mood-and-energy fit but the "wrong" genre. The system might over-prioritize genre, sidelining great songs that match the user's mood and vibe just because the genre label differs.
+- **All-or-nothing categorical bonuses.** Genre and mood are scored as exact string matches, not similarity — a mood of `"happy"` gets zero credit toward a target of `"excited"` even though they're conceptually close, and a rare genre with only one catalog entry either wins big or contributes nothing.
+- **Ignores acousticness and valence.** The dataset has `valence` and `acousticness` columns that aren't used in scoring at all, so two songs that feel very different on those axes can score identically if their genre, mood, and energy line up — the system can recommend something that "measures right" on the three chosen features but still doesn't match the user's actual taste on dimensions it never looks at.
 
 ---
 
@@ -68,15 +80,32 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Sample Recommendation Output
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
+Output of `python -m src.main` for the default profile (`genre=pop, mood=happy, energy=0.8`):
 
 ```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
+Loaded 20 songs from data/songs.csv
+
+Top Recommendations
+===================
+
+1. Sunrise City — Score: 4.96
+     - Matches your favorite genre (pop) (+2.0)
+     - Matches your favorite mood (happy) (+1.0)
+     - Energy 0.82 is close to your target 0.80 (+1.96)
+
+2. Gym Hero — Score: 3.74
+     - Matches your favorite genre (pop) (+2.0)
+     - Energy 0.93 is close to your target 0.80 (+1.74)
+
+3. Rooftop Lights — Score: 2.92
+     - Matches your favorite mood (happy) (+1.0)
+     - Energy 0.76 is close to your target 0.80 (+1.92)
+
+4. Carnival Skies — Score: 1.96
+     - Energy 0.82 is close to your target 0.80 (+1.96)
+
+5. Night Drive Loop — Score: 1.90
+     - Energy 0.75 is close to your target 0.80 (+1.90)
 ```
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
