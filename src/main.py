@@ -12,19 +12,24 @@ You will implement the functions in recommender.py:
 from recommender import load_songs, recommend_songs
 
 
+PROFILES = [
+    ("High-Energy Pop", {"genre": "pop", "mood": "happy", "energy": 0.85}),
+    ("Chill Lofi", {"genre": "lofi", "mood": "chill", "energy": 0.35}),
+    ("Deep Intense Rock", {"genre": "rock", "mood": "intense", "energy": 0.90}),
+]
+
+
 def main() -> None:
-    songs = load_songs("data/songs.csv") 
+    songs = load_songs("data/songs.csv")
 
-    # Starter example profile
-    user_prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
+    for profile_name, user_prefs in PROFILES:
+        recommendations = recommend_songs(user_prefs, songs, k=5)
 
-    recommendations = recommend_songs(user_prefs, songs, k=5)
-
-    print("\nTop Recommendations\n" + "=" * 19)
-    for rank, (song, score, reasons) in enumerate(recommendations, start=1):
-        print(f"\n{rank}. {song['title']} — Score: {score:.2f}")
-        for reason in reasons:
-            print(f"     - {reason}")
+        print(f"\n{profile_name} Recommendations\n" + "=" * (len(profile_name) + 16))
+        for rank, (song, score, reasons) in enumerate(recommendations, start=1):
+            print(f"\n{rank}. {song['title']} — Score: {score:.2f}")
+            for reason in reasons:
+                print(f"     - {reason}")
 
 
 if __name__ == "__main__":
